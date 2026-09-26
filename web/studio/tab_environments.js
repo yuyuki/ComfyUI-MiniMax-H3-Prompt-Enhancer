@@ -116,6 +116,7 @@ export function renderEnvironmentsTab(container, controller) {
         ));
     }
     const environment = project.environments.find((item) => item.id === ui.environmentSelectedId);
+    inspector.dataset.problemEntity = "true"; inspector.dataset.environmentId = environment.id;
     const permanent = inspectorSection("Permanent", environment.name || environment.id, true);
     permanent.body.appendChild(element("p", "minimax-h3-field-hint", `Stable ID: ${environment.id}. These details remain fixed across every temporary state.`));
     const name = textInput(environment.name); bindCommit(name, (value) => { environment.name = value.trim() || environment.id; }, commit);

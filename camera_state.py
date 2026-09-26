@@ -16,25 +16,11 @@ from typing import Any
 
 ID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
 
-FRAME_ENUMS = {
-    "framing": {
-        "extreme_close_up", "close_up", "medium_close_up", "medium",
-        "medium_wide", "wide", "extreme_wide",
-    },
-    "angle": {
-        "eye_level", "low_angle", "high_angle", "overhead",
-        "dutch_static", "worms_eye",
-    },
-    "viewpoint": {
-        "pov", "over_the_shoulder", "mirror_or_reflection", "front",
-        "three_quarter", "profile", "rear_three_quarter", "rear",
-    },
-    "composition": {
-        "centered", "rule_of_thirds", "symmetrical", "layered_depth",
-        "frame_within_frame", "negative_space", "two_shot", "custom",
-    },
-    "distance": {"intimate", "near", "medium", "far", "very_far", "custom"},
-}
+try:
+    from .camera_catalog import CAMERA_MOTIONS, FRAME_ENUMS
+except ImportError:
+    from camera_catalog import CAMERA_MOTIONS, FRAME_ENUMS
+
 
 TARGET_KEYS = {"primaryTarget", "secondaryTarget", "foregroundTarget"}
 FRAME_KEYS = set(FRAME_ENUMS) | TARGET_KEYS | {
@@ -42,12 +28,7 @@ FRAME_KEYS = set(FRAME_ENUMS) | TARGET_KEYS | {
 }
 TARGET_KINDS = {"subject", "environment", "asset"}
 FOCUS_MODES = {"single_target", "split_focus", "deep_focus", "custom"}
-MOTION_TYPES = {
-    "static", "zoom_in", "zoom_out", "push_in", "pull_out", "pan_left",
-    "pan_right", "truck_left", "truck_right", "tilt_up", "tilt_down",
-    "pedestal_up", "pedestal_down", "arc", "tracking", "shake",
-    "roll_clockwise", "roll_counterclockwise",
-}
+MOTION_TYPES = set(CAMERA_MOTIONS)
 PATH_KEYS = {
     "motionType", "amplitude", "speed", "easing", "timing",
     "coordinateSpace", "pathShape", "anchorTarget", "waypoints",
@@ -340,15 +321,7 @@ def camera_frame_sentence(frame: Mapping[str, Any], phase: str = "start",
     return ("Start " if phase == "start" else "End ") + ", ".join(parts) + "."
 
 
-_MOTION_PHRASES = {
-    "zoom_in": "zooms in", "zoom_out": "zooms out", "push_in": "pushes in",
-    "pull_out": "pulls back", "pan_left": "pans left", "pan_right": "pans right",
-    "truck_left": "trucks left", "truck_right": "trucks right", "tilt_up": "tilts up",
-    "tilt_down": "tilts down", "pedestal_up": "rises", "pedestal_down": "descends",
-    "arc": "arcs around the action", "tracking": "tracks the action",
-    "shake": "moves with camera shake", "roll_clockwise": "rolls clockwise",
-    "roll_counterclockwise": "rolls counterclockwise",
-}
+_MOTION_PHRASES = {key: item["phrase"] for key, item in CAMERA_MOTIONS.items() if item["phrase"]}
 
 
 def _progress_words(value: float) -> str:

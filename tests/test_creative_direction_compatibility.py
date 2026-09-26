@@ -396,7 +396,7 @@ def test_frontend_mirrors_the_new_camera_axes_and_legacy_motion_migration():
         "lens_50mm", "lens_85mm_compressed", "match_cut", "whip_pan",
     ):
         assert f'"{token}"' in source
-    assert '["shake", "Handheld shake"]' in source
+    assert 'cameraMotion: motionChoices("none", "No preference")' in source
     assert '["pov", "POV"]' not in source
     assert '["shake_slightly", "Shake slightly"]' not in source
     assert "const LEGACY_CAMERA_MOTIONS = {" in source

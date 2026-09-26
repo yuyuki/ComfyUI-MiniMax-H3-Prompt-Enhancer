@@ -67,6 +67,7 @@ export function renderCameraTab(container, controller) {
     );
 
     const workspace = element("div", "minimax-h3-camera-workspace");
+    workspace.dataset.problemEntity = "true"; workspace.dataset.shotId = shot.id;
     renderVisualCameraPlanner(workspace, shot, project, commit, rerender);
 
     const preciseCamera = element("details", "minimax-h3-camera-advanced");

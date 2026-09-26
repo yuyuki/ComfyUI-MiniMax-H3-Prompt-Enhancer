@@ -363,3 +363,58 @@ The ordinary Python `enhance()` result remains the same tuple. ComfyUI calls `en
 ## Independent implementation and provenance
 
 Prompt Studio was implemented independently in this GPL-3.0 project. General planning and editor concepts were evaluated from the publicly visible [BMB12d3/minimax-h3-prompt-composer](https://github.com/BMB12d3/minimax-h3-prompt-composer), which did not publish a license when reviewed. No source code, HTML, CSS, wording, regular expressions, fixtures, or documentation was copied or adapted. The schemas, algorithms, UI, diagnostics, tests, and prose in this project were written from scratch around this repository's existing H3 contracts and ComfyUI compatibility requirements.
+
+## Problems and model-free preflight
+
+Open **Studio → Problems** (the former Review panel). Configuration checks run
+without loading an LLM when saved planning inputs change. **Check configuration**
+reruns the production parsers and planning compiler immediately. Preflight is
+advisory to the editor: the generation node still enforces its own validation.
+A passed preflight does not mean that a generated prompt or video has been checked.
+
+The panel combines current preflight findings with diagnostics from the last
+prompt enhancement. Findings from older output are labeled outdated and do not
+highlight current fields or contribute to current error counts. Section badges
+show errors and warnings; mapped controls and containing disclosures are outlined
+with inline explanations. **Go to field** selects the affected shot or resource
+and opens the appropriate section. If a diagnostic has no exact editable control,
+Studio opens the related section and says so instead of guessing. Errors in raw
+JSON remain editable through Overview → Import & source tools.
+
+Every finding retains deterministic suggestions. These distinguish configuration
+changes from prompt alternatives; changing prose cannot repair an invalid enum,
+missing reference, or an inconsistent duration. Camera position, movement, and
+viewing target are separate controls.
+
+### Optional local explanations
+
+1. Start the local OpenAI-compatible server in LM Studio and load a chat model.
+2. In Problems, expand **Local explanation settings**. Set the local API endpoint
+   (usually `http://127.0.0.1:1234/v1`) and the loaded model ID, or leave them blank
+   to use Model setup. These overrides also work with the managed GGUF enhancer.
+3. Choose English or French, then click **Explain with local LLM** on a finding,
+   or **Explain all (up to 50)**.
+
+Requests are on demand only, serialized, limited to loopback endpoints, and do
+not follow redirects. The selected endpoint's `/chat/completions` API receives
+problem details and relevant text configuration. No media files are uploaded.
+API keys are transport credentials and are excluded from explanation prompts.
+Explanation settings and cached answers are held in memory for this session,
+not serialized into the ComfyUI workflow. No model-discovery request is made by
+this feature; model-loading behavior ultimately belongs to the configured server.
+Avoid requesting explanations while H3 occupies the GPU.
+
+Explanations are suggestions, not validation results. They cannot change severity,
+apply edits, or mark a problem fixed. Cached answers are invalidated by relevant
+configuration, language, endpoint, or model changes. Offline servers, oversized
+context, and empty answers show an actionable error while built-in fixes remain
+available. Changed configuration discards an in-flight explanation.
+
+### Maintaining the camera catalog
+
+`camera_catalog.json` owns the camera motion values, labels, explanations, prompt
+phrases, and frame vocabulary. Python imports it directly. Run
+`python tools/generate_camera_catalog.py` to regenerate the browser catalog and
+schema motion enums after editing it. CI runs the same command with `--check`.
+Existing stored enum values are unchanged; unsupported spellings such as
+`pitch_in` are explained, never silently converted to a different camera action.

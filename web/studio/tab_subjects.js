@@ -176,6 +176,7 @@ export function renderSubjectsTab(container, controller) {
         master.appendChild(row);
     }
     const subject = project.subjects.find((item) => item.id === ui.subjectSelectedId);
+    inspector.dataset.problemEntity = "true"; inspector.dataset.subjectId = subject.id;
     const identity = inspectorSection("Identity", `<Subject ${subject.h3Index}>`, true);
     identity.body.appendChild(element("p", "minimax-h3-field-hint", `Stable ID: ${subject.id}. Appearance states never change facial identity.`));
     const name = textInput(subject.name); bindCommit(name, (value) => { subject.name = value.trim() || subject.id; }, commit);

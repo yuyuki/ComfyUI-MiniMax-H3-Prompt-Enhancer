@@ -1,3 +1,5 @@
+import { createProblemService, PREFLIGHT_FIELDS } from "./studio/problems.js";
+import { motionChoices } from "./studio/camera_catalog.js";
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 import {
@@ -14,6 +16,7 @@ import {
     createPanelElement,
     createStudioDashboard,
     refreshStudioDrawer,
+    refreshStudioProblems,
 } from "./studio/drawer.js";
 import { applySafeActionDocuments } from "./studio/coach_actions.js";
 import { effectiveH3Resolution, formatResolutionLabel } from "./studio/media_resolution.js";
@@ -383,7 +386,7 @@ const CINEMATOGRAPHY_CHOICES = {
     shotScale: [["none", "No preference"], ["extreme_close_up", "Extreme close-up"], ["close_up", "Close-up"], ["medium_close_up", "Medium close-up"], ["medium", "Medium"], ["medium_wide", "Medium wide"], ["wide", "Wide"], ["extreme_wide", "Extreme wide"]],
     cameraAngle: [["none", "No preference"], ["eye_level", "Eye level"], ["low_angle", "Low angle"], ["high_angle", "High angle"], ["overhead", "Overhead"], ["dutch_static", "Dutch (static cant)"], ["worms_eye", "Worm's eye"]],
     cameraViewpoint: [["none", "No preference"], ["pov", "First-person POV"], ["over_the_shoulder", "Over the shoulder"], ["mirror_or_reflection", "Mirror or reflection"]],
-    cameraMotion: [["none", "No preference"], ["static", "Static shot"], ["zoom_in", "Zoom in"], ["zoom_out", "Zoom out"], ["push_in", "Push in"], ["pull_out", "Pull out"], ["pan_left", "Pan left"], ["pan_right", "Pan right"], ["truck_left", "Truck left"], ["truck_right", "Truck right"], ["tilt_up", "Tilt up"], ["tilt_down", "Tilt down"], ["pedestal_up", "Pedestal up"], ["pedestal_down", "Pedestal down"], ["arc", "Arc shot"], ["tracking", "Tracking shot"], ["shake", "Handheld shake"], ["roll_clockwise", "Roll clockwise"], ["roll_counterclockwise", "Roll counterclockwise"]],
+    cameraMotion: motionChoices("none", "No preference"),
     cameraAmplitude: [["auto", "Automatic"], ["small", "Small"], ["medium", "Medium"], ["large", "Large"]],
     cameraSpeed: [["auto", "Automatic"], ["slow", "Slow"], ["normal", "Normal"], ["fast", "Fast"]],
     optics: [["none", "No preference"], ["wide_perspective", "Wide perspective"], ["natural_perspective", "Natural perspective"], ["compressed_telephoto", "Compressed telephoto"], ["lens_18mm", "18mm lens"], ["lens_35mm", "35mm lens"], ["lens_50mm", "50mm lens"], ["lens_85mm_compressed", "85mm compressed lens"]],
@@ -3405,8 +3408,46 @@ function createStudioController(node) {
             return true;
         },
         diagnostics() {
-            return node.__minimaxDiagnostics ?? { diagnostics: [], stale: false };
+            return this.problemService.report();
         },
+    };
+    const widgetValue = name => node.widgets?.find(widget => widget.name === name)?.value;
+    controller.problemService = createProblemService({
+        controller,
+        readInputs: () => Object.fromEntries(PREFLIGHT_FIELDS.map(name => [name, widgetValue(name)]).filter(([, value]) => value !== undefined)),
+        output: () => node.__minimaxDiagnostics ?? {},
+        changed: () => { node.__minimaxStudioDashboard?.refresh(); refreshStudioProblems(node.id); },
+        request: async (route, payload) => {
+            const response = await api.fetchApi(`/minimax_h3_prompt_enhancer/${route}`, {
+                method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload),
+            });
+            const data = await response.json();
+            if (!response.ok || data.error) throw new Error(data.error || `HTTP ${response.status}`);
+            return data;
+        },
+    });
+    controller.runPreflight = () => controller.problemService.refresh();
+    controller.explainProblems = (items, language) => {
+        const overrides = controller.explanationSettings ?? {};
+        const configuredEndpoint = widgetValue("endpoint") || "http://127.0.0.1:1234/v1";
+        const endpoint = overrides.endpoint?.trim() || configuredEndpoint;
+        return controller.problemService.explain(items, language, {
+            endpoint,
+            model: overrides.model?.trim() || widgetValue("model") || "",
+            api_key: overrides.api_key || (endpoint === configuredEndpoint ? widgetValue("api_key") || "" : ""),
+        });
+    };
+    controller.focusNodeField = (name) => {
+        if (!PREFLIGHT_FIELDS.includes(name)) return false;
+        const panel = node.__minimaxCreativePanel;
+        const sections = [panel?.audioSettings, panel?.modelSetup, panel?.chainedSettings, panel?.advancedSettings];
+        const proxy = sections.map(section => section?.proxies?.[name]).find(Boolean);
+        const control = proxy?.control ?? widgetTextElement(node.widgets?.find(widget => widget.name === name));
+        if (!control) return false;
+        closeStudioDrawer(node.id);
+        for (let el = control.parentElement; el; el = el.parentElement) if (el.tagName === "DETAILS") el.open = true;
+        control.scrollIntoView?.({block: "center"}); control.focus?.();
+        return true;
     };
     return controller;
 }

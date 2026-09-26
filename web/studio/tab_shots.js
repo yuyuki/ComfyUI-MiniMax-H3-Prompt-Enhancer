@@ -1,3 +1,4 @@
+import { motionChoices, frameChoices } from "./camera_catalog.js";
 import {
     actionButton, bindCommit, captureOpenDisclosures, checkboxPicker, element, emptyState, field, inspectorSection,
     restoreOpenDisclosures, selectInput, setOptional, textArea, textInput,
@@ -31,13 +32,13 @@ export function shotRowModel(shot, index, timingMode, elapsedSeconds = 0) {
     };
 }
 
-const FRAMING = [["", "Unspecified"], ["extreme_close_up", "Extreme close-up"], ["close_up", "Close-up"], ["medium_close_up", "Medium close-up"], ["medium", "Medium"], ["medium_wide", "Medium wide"], ["wide", "Wide"], ["extreme_wide", "Extreme wide"]];
-const ANGLE = [["", "Unspecified"], ["eye_level", "Eye level"], ["low_angle", "Low angle"], ["high_angle", "High angle"], ["overhead", "Overhead"], ["dutch_static", "Dutch"], ["worms_eye", "Worm's eye"]];
-const VIEWPOINT = [["", "Unspecified"], ["pov", "POV"], ["over_the_shoulder", "Over the shoulder"], ["mirror_or_reflection", "Mirror / reflection"], ["front", "Front"], ["three_quarter", "Three-quarter"], ["profile", "Profile"], ["rear_three_quarter", "Rear three-quarter"], ["rear", "Rear"]];
-const COMPOSITION = [["", "Unspecified"], ["centered", "Centered"], ["rule_of_thirds", "Rule of thirds"], ["symmetrical", "Symmetrical"], ["layered_depth", "Layered depth"], ["frame_within_frame", "Frame within frame"], ["negative_space", "Negative space"], ["two_shot", "Two-shot"], ["custom", "Custom"]];
-const DISTANCE = [["", "Unspecified"], ["intimate", "Intimate"], ["near", "Near"], ["medium", "Medium"], ["far", "Far"], ["very_far", "Very far"], ["custom", "Custom"]];
+const FRAMING = frameChoices("framing");
+const ANGLE = frameChoices("angle");
+const VIEWPOINT = frameChoices("viewpoint");
+const COMPOSITION = frameChoices("composition");
+const DISTANCE = frameChoices("distance");
 const FOCUS = [["", "Unspecified"], ["single_target", "Single target"], ["split_focus", "Split focus"], ["deep_focus", "Deep focus"], ["custom", "Custom"]];
-const MOTION = [["", "Unspecified"], ["static", "Static"], ["zoom_in", "Zoom in"], ["zoom_out", "Zoom out"], ["push_in", "Push in"], ["pull_out", "Pull out"], ["pan_left", "Pan left"], ["pan_right", "Pan right"], ["truck_left", "Truck left"], ["truck_right", "Truck right"], ["tilt_up", "Tilt up"], ["tilt_down", "Tilt down"], ["pedestal_up", "Pedestal up"], ["pedestal_down", "Pedestal down"], ["arc", "Arc"], ["tracking", "Tracking"], ["shake", "Shake"], ["roll_clockwise", "Roll clockwise"], ["roll_counterclockwise", "Roll counter-clockwise"]];
+const MOTION = motionChoices();
 const TRANSITIONS = [["", "Default cut"], ["cut", "Cut"], ["match_cut", "Match cut"], ["whip_pan", "Whip pan"], ["cross_dissolve", "Cross-dissolve"], ["fade_through_black", "Fade through black"], ["hold", "Hold"]];
 const PRESENCE = [["", "Not declared"], ["present", "Present"], ["enters", "Enters"], ["exits", "Exits"], ["absent", "Absent"]];
 const REFERENCE_ROLES = ["identity_reinforcement", "appearance", "environment_view", "scale", "placement", "continuity", "lighting", "composition", "performance", "voice", "exact_dialogue", "soundtrack", "camera_transfer"].map((value) => [value, value.replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase())]);
@@ -111,6 +112,7 @@ function targetEditor(label, target, project, onChange) {
 
 export function renderFrame(container, shot, key, label, project, provenance, commit, rerender) {
     const section = inspectorSection(label, key === "cameraEnd" && !shot.cameraEnd ? "inherits start" : "Framing, composition and focus", key === "cameraStart");
+    section.details.dataset.cameraPhase = key;
     const frame = shot[key] ?? {};
     const bindFrame = (property, choices, fieldLabel) => {
         const control = selectInput(frame[property], choices);
@@ -882,6 +884,7 @@ export function renderShotsTab(container, controller) {
     renderShotList(list, state, (id) => { state.selectedId = id; rerender(); }, reorder); grid.appendChild(list);
     const editor = element("div", "minimax-h3-studio-editor minimax-h3-inspector minimax-h3-shot-inspector");
     const shot = state.plan.shots.find((candidate) => candidate.id === state.selectedId);
+    editor.dataset.problemEntity = "true"; editor.dataset.shotId = shot.id;
     const entryStates = resolveEntryStates(project, state.plan).byShot.get(shot.id) ?? { subjects: {}, environments: {} };
     const header = element("div", "minimax-h3-studio-toolbar");
     header.append(element("strong", "", `${shot.id} · Shot ${state.plan.shots.indexOf(shot) + 1}`));

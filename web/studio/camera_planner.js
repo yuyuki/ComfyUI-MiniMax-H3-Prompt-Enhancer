@@ -1,37 +1,16 @@
+import { CAMERA_CATALOG, CAMERA_MOTIONS, MOTION_LABELS, VISUAL_CAMERA_MOTIONS, frameChoices } from "./camera_catalog.js";
+export { VISUAL_CAMERA_MOTIONS } from "./camera_catalog.js";
 import { actionButton, element, selectInput } from "./domain_components.js";
 import { ensureCameraPlannerStyles } from "./camera_planner_styles.js";
 import { cameraElevationLabel, cameraVerticalSegment, renderSpatialCameraEditor } from "./spatial_camera_editor.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-const MOTION_LABELS = Object.freeze({
-    static: "Locked off", zoom_in: "Zoom in", zoom_out: "Zoom out",
-    push_in: "Dolly in", pull_out: "Dolly out",
-    pan_left: "Pan left", pan_right: "Pan right",
-    truck_left: "Truck left", truck_right: "Truck right",
-    tilt_up: "Tilt up", tilt_down: "Tilt down",
-    pedestal_up: "Pedestal up", pedestal_down: "Pedestal down",
-    arc: "Orbit / arc", tracking: "Track subject", shake: "Handheld shake",
-    roll_clockwise: "Roll clockwise", roll_counterclockwise: "Roll counter-clockwise",
-});
 
-export const VISUAL_CAMERA_MOTIONS = Object.freeze([
-    { label: "Distance", items: [["static", "Locked", "●"], ["push_in", "Dolly in", "→"], ["pull_out", "Dolly out", "←"], ["zoom_in", "Zoom in", "+"], ["zoom_out", "Zoom out", "−"]] },
-    { label: "Across the scene", items: [["truck_left", "Truck left", "←"], ["truck_right", "Truck right", "→"], ["arc", "Orbit / arc", "↷"], ["tracking", "Track subject", "⇢"]] },
-    { label: "Aim & height", items: [["pan_left", "Pan left", "↶"], ["pan_right", "Pan right", "↷"], ["tilt_up", "Tilt up", "↑"], ["tilt_down", "Tilt down", "↓"], ["pedestal_up", "Pedestal up", "⇡"], ["pedestal_down", "Pedestal down", "⇣"]] },
-    { label: "Expressive", items: [["roll_clockwise", "Roll clockwise", "⟳"], ["roll_counterclockwise", "Roll counter-clockwise", "⟲"], ["shake", "Handheld shake", "≈"]] },
-]);
-
-const FRAMING = [["", "Unspecified"], ["extreme_close_up", "Extreme close-up"], ["close_up", "Close-up"], ["medium_close_up", "Medium close-up"], ["medium", "Medium"], ["medium_wide", "Medium wide"], ["wide", "Wide"], ["extreme_wide", "Extreme wide"]];
-const ANGLE = [["", "Unspecified"], ["eye_level", "Eye level"], ["low_angle", "Low angle"], ["high_angle", "High angle"], ["overhead", "Overhead"], ["dutch_static", "Dutch"], ["worms_eye", "Worm's eye"]];
+const FRAMING = frameChoices("framing");
+const ANGLE = frameChoices("angle");
 const AMPLITUDE = [["", "Travel: Auto"], ["small", "Travel: Gentle"], ["medium", "Travel: Standard"], ["large", "Travel: Bold"]];
 const SPEED = [["", "Pace: Auto"], ["slow", "Pace: Slow"], ["normal", "Pace: Normal"], ["fast", "Pace: Fast"]];
-const FRAME_ENUMS = Object.freeze({
-    framing: new Set(FRAMING.slice(1).map(([value]) => value)),
-    angle: new Set(ANGLE.slice(1).map(([value]) => value)),
-    viewpoint: new Set(["pov", "over_the_shoulder", "mirror_or_reflection", "front", "three_quarter", "profile", "rear_three_quarter", "rear"]),
-    composition: new Set(["centered", "rule_of_thirds", "symmetrical", "layered_depth", "frame_within_frame", "negative_space", "two_shot", "custom"]),
-    distance: new Set(["intimate", "near", "medium", "far", "very_far", "custom"]),
-});
+const FRAME_ENUMS = Object.freeze(Object.fromEntries(Object.entries(CAMERA_CATALOG.frameEnums).map(([key, values]) => [key, new Set(values)])));
 const FRAME_KEYS = new Set([...Object.keys(FRAME_ENUMS), "compositionNote", "primaryTarget", "secondaryTarget", "foregroundTarget", "focus", "distanceNote"]);
 const PATH_ENUMS = Object.freeze({
     amplitude: new Set(["small", "medium", "large"]), speed: new Set(["slow", "normal", "fast"]),
@@ -254,6 +233,7 @@ function movementPhase(shot, commit, rerender) {
         for (const [token, label, symbol] of group.items) {
             const button = actionButton(label, () => { setVisualCameraMotion(shot, token); commit(); rerender(); });
             button.className = "minimax-h3-camera-motion-button";
+            button.title = CAMERA_MOTIONS[token]?.instruction ?? label;
             button.dataset.motion = token; button.setAttribute("aria-pressed", String(selectedToken === token));
             // Put the symbol first without losing the button's accessible text.
             const textNode = element("span", "", label); button.textContent = ""; button.append(element("span", "minimax-h3-camera-motion-symbol", symbol), textNode);
