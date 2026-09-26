@@ -47,6 +47,7 @@ export function selectInput(value, choices, { ariaLabel = "" } = {}) {
 
 export function field(label, control, hint = "") {
     const wrapper = element("label", "minimax-h3-studio-field");
+    wrapper.dataset.fieldLabel = label;
     wrapper.appendChild(element("span", "", label));
     wrapper.appendChild(control);
     if (hint) wrapper.appendChild(element("small", "minimax-h3-field-hint", hint));

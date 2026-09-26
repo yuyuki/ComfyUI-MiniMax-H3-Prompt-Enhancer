@@ -1,3 +1,5 @@
+import { decorateProblems, findProblemFields, selectProblemEntity } from "./problem_highlights.js";
+import { problemSection } from "./problems.js";
 import { renderCameraLookTab } from "./tab_camera_look.js";
 import { renderCameraTab } from "./tab_camera.js";
 import { renderCoachTab } from "./tab_coach.js";
@@ -59,7 +61,7 @@ export function focusDiagnosticLocation(panel, location = {}) {
         return { found: false, reason: "This finding refers to generated output, not an editable Studio control." };
     }
     const fieldName = String(location.field ?? "");
-    let target = null;
+    let target = findProblemFields(panel, {location})[0]?.querySelector?.("input, textarea, select, button") ?? null;
     if (/\.action$|\]\.action$/.test(fieldName)) target = panel.querySelector?.("[data-shot-action]");
     if (!target && /\.staging(?:\.|$)/.test(fieldName)) target = panel.querySelector?.(".minimax-h3-staging-stage, .minimax-h3-staging-inspector");
     if (!target && /cameraPath/.test(fieldName)) target = panel.querySelector?.(".minimax-h3-camera-planner, .minimax-h3-spatial-camera-editor");
@@ -256,7 +258,7 @@ function createHeader(controller, onReview, onClose) {
     saved.title = "Every explicit edit is stored immediately in this node's Project v2 data.";
     const review = createPanelElement("button", "minimax-h3-review-button");
     review.type = "button";
-    review.append(createStudioIcon("review"), createPanelElement("span", "minimax-h3-review-label", "Review"));
+    review.append(createStudioIcon("review"), createPanelElement("span", "minimax-h3-review-label", "Problems"));
     review.setAttribute("aria-live", "polite");
     review.addEventListener("click", onReview);
     const help = createIconButton("help", "Keyboard shortcuts");
@@ -314,8 +316,8 @@ function createHeader(controller, onReview, onClose) {
         const counts = reportCounts(controller);
         review.dataset.state = counts.stale ? "stale" : counts.errors ? "error" : counts.warnings ? "warning" : "ready";
         review.querySelector(".minimax-h3-review-label").textContent = counts.stale
-            ? `Review · stale`
-            : counts.total ? `Review · ${counts.errors} errors · ${counts.warnings + counts.tips} notes` : "Review";
+            ? `Problems · previous output outdated`
+            : counts.total ? `Problems · ${counts.errors} errors · ${counts.warnings + counts.tips} notes` : "Problems";
         const contextModel = productionContext(controller);
         for (const [key, target] of productionFields) target.textContent = String(contextModel[key]);
     };
@@ -499,6 +501,18 @@ export function openStudioDrawer(node, controller, initialTab = null, returnFocu
             button.setAttribute("aria-selected", String(selected));
             button.tabIndex = selected ? 0 : -1;
         }
+        const findings = controller.diagnostics?.()?.diagnostics ?? [];
+        for (const [id, button] of navigation.buttons) {
+            const items = findings.filter(d => !d.stale && ["error", "warning"].includes(d.severity) && problemSection(d) === id);
+            const errors = items.filter(d => d.severity === "error").length;
+            const label = STUDIO_SECTIONS.find(s => s.id === id)?.label ?? id;
+            const caption = button.querySelector(".minimax-h3-tab-label");
+            if (caption) caption.textContent = items.length ? `${label} · ${errors} errors / ${items.length - errors} warnings` : label;
+            button.setAttribute("aria-label", caption?.textContent ?? label);
+            if (items.length) button.dataset.problemSeverity = errors ? "error" : "warning";
+            else delete button.dataset.problemSeverity;
+        }
+        decorateProblems(panel, findings, sectionId);
         header.refresh();
         if (activeDrawer) activeDrawer.tabId = sectionId;
     };
@@ -589,6 +603,7 @@ export function openStudioDrawer(node, controller, initialTab = null, returnFocu
     controller.navigateStudio = render;
     controller.setStudioDetailMode = applyDetailMode;
     const navigateStudioLocation = (section, location = {}) => {
+        selectProblemEntity(controller, location);
         render(section);
         queueMicrotask(() => {
             const result = focusDiagnosticLocation(panel, location);
@@ -599,7 +614,14 @@ export function openStudioDrawer(node, controller, initialTab = null, returnFocu
         });
     };
     controller.navigateStudioLocation = navigateStudioLocation;
+    const observer = typeof MutationObserver === "function" ? new MutationObserver(() => {
+        observer.disconnect();
+        decorateProblems(panel, controller.diagnostics?.()?.diagnostics ?? [], currentSection);
+        observer.observe(panel, {childList: true, subtree: true});
+    }) : null;
+    observer?.observe(panel, {childList: true, subtree: true});
     const cleanup = () => {
+        observer?.disconnect();
         globalThis.removeEventListener("pointermove", onPointerMove);
         globalThis.removeEventListener("pointerup", onPointerUp);
         globalThis.removeEventListener("resize", onViewportResize);
@@ -620,7 +642,24 @@ export function openStudioDrawer(node, controller, initialTab = null, returnFocu
             else controller.studioDetailMode = previousDetailMode;
         }
     };
-    activeDrawer = { nodeId: node.id, node, element: drawer, controller, returnFocus, tabId: previousSection, render, cleanup };
+    activeDrawer = { nodeId: node.id, node, element: drawer, controller, returnFocus, tabId: previousSection, render, cleanup,
+        refreshProblems() {
+            if (currentSection === "review") { render(currentSection); return; }
+            const findings = controller.diagnostics?.()?.diagnostics ?? [];
+            decorateProblems(panel, findings, currentSection);
+            for (const [id, button] of navigation.buttons) {
+                const items = findings.filter(d => !d.stale && ["error", "warning"].includes(d.severity) && problemSection(d) === id);
+                const errors = items.filter(d => d.severity === "error").length;
+                const label = STUDIO_SECTIONS.find(s => s.id === id)?.label ?? id;
+                const caption = button.querySelector(".minimax-h3-tab-label");
+                if (caption) caption.textContent = items.length ? `${label} · ${errors} errors / ${items.length - errors} warnings` : label;
+                button.setAttribute("aria-label", caption?.textContent ?? label);
+                if (items.length) button.dataset.problemSeverity = errors ? "error" : "warning";
+                else delete button.dataset.problemSeverity;
+            }
+            header.refresh();
+        },
+    };
     node.__minimaxStudioDashboard?.refresh?.();
     updateResizer();
     render(initialTab ?? prefs.lastSection);
@@ -666,7 +705,7 @@ export function createStudioDashboard(node, controller) {
         ["media", "Media", "media", (summary) => `${summary.active}/${summary.assets}`],
         ["camera", "Camera", "camera", () => ""],
         ["look", "Look", "look", () => ""],
-        ["review", "Review", "review", (summary) => summary.diagnostics],
+        ["review", "Problems", "review", (summary) => summary.diagnostics],
     ];
     const refresh = () => {
         const summary = dashboardSummaries(controller);
@@ -694,4 +733,8 @@ export function createStudioDashboard(node, controller) {
     root.appendChild(strip);
     refresh();
     return { root, refresh };
+}
+
+export function refreshStudioProblems(nodeId) {
+    if (activeDrawer?.nodeId === nodeId) activeDrawer.refreshProblems();
 }

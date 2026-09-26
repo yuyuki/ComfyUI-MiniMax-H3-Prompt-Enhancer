@@ -1,3 +1,4 @@
+import { problemSection } from "./problems.js";
 const SEVERITY_ORDER = ["error", "warning", "advice", "info"];
 const SEVERITY_LABELS = { error: "Errors", warning: "Warnings", advice: "Tips", info: "Information" };
 const BASIS_LABELS = { contract: "Contract rule", configuration: "Configuration", derived: "Derived check", heuristic: "Heuristic advice" };
@@ -70,21 +71,7 @@ function button(label, action) {
 }
 
 export function diagnosticSection(diagnostic) {
-    const field = String(diagnostic.location?.field ?? "").toLowerCase();
-    if (field.startsWith("cinematography_json.")) return "look";
-    if (/\.staging(?:\.|$)/.test(field)) return "staging";
-    if (/camerapath|camerastart|cameraend/.test(field)) return "camera";
-    if (diagnostic.location?.shotId || Number.isInteger(diagnostic.location?.shotIndex)) return "shots";
-    const locatedSection = String(diagnostic.location?.section ?? "").toLowerCase();
-    if (locatedSection.includes("subject") || locatedSection.includes("appearance")) return "subjects";
-    if (locatedSection.includes("environment")) return "environments";
-    if (locatedSection.includes("media") || locatedSection.includes("reference") || locatedSection.includes("generation")) return "media";
-    if (locatedSection.includes("camera") || locatedSection.includes("look")) return "camera";
-    if (diagnostic.category === "reference") return "media";
-    if (["camera", "style"].includes(diagnostic.category)) return "camera";
-    if (diagnostic.category === "appearance") return "subjects";
-    if (diagnostic.category === "environment") return "environments";
-    return "overview";
+    return problemSection(diagnostic);
 }
 
 function reviewStorage(controller) {
@@ -93,6 +80,7 @@ function reviewStorage(controller) {
 }
 
 function navigateDiagnostic(controller, diagnostic) {
+    if (controller.focusNodeField?.(diagnostic.location?.field)) return;
     if (diagnostic.location?.shotId) controller.shotUiState.selectedId = diagnostic.location.shotId;
     const section = diagnosticSection(diagnostic);
     if (controller.navigateStudioLocation) controller.navigateStudioLocation(section, diagnostic.location ?? {});
@@ -104,7 +92,7 @@ function renderDiagnostic(diagnostic, report, controller, { dismissed = false, o
     card.className = "minimax-h3-review-card";
     card.dataset.severity = diagnostic.severity ?? "info";
     card.dataset.category = diagnostic.category ?? "configuration";
-    if (report.stale) card.dataset.stale = "true";
+    if (diagnostic.stale) card.dataset.stale = "true";
     const resolved = controller.resolvedDiagnosticFingerprints?.has(diagnostic.fingerprint);
     if (resolved) card.dataset.resolved = "true";
     if (dismissed) card.dataset.dismissed = "true";
@@ -124,7 +112,7 @@ function renderDiagnostic(diagnostic, report, controller, { dismissed = false, o
     message.textContent = diagnostic.message ?? "";
     card.append(header, message);
 
-    const location = button(diagnosticLocationLabel(diagnostic.location), () => navigateDiagnostic(controller, diagnostic));
+    const location = button("Go to field · " + diagnosticLocationLabel(diagnostic.location), () => navigateDiagnostic(controller, diagnostic));
     location.className = "minimax-h3-location-chip";
     location.title = "Open the closest matching control; output-only findings open their related section";
     card.appendChild(location);
@@ -142,7 +130,7 @@ function renderDiagnostic(diagnostic, report, controller, { dismissed = false, o
         }
         card.appendChild(suggestions);
     }
-    if (diagnostic.actions?.length) {
+    if (diagnostic.actions?.length && !diagnostic.stale) {
         const actions = document.createElement("div");
         actions.className = "minimax-h3-review-actions";
         for (const safeAction of diagnostic.actions) {
@@ -158,8 +146,9 @@ function renderDiagnostic(diagnostic, report, controller, { dismissed = false, o
         }
         card.appendChild(actions);
     }
+    if (controller.explainProblems) card.appendChild(explanationControl(controller, [diagnostic]));
     const meta = document.createElement("footer");
-    meta.textContent = `${diagnostic.code ?? "diagnostic"} · ${diagnostic.blocks?.valid ? "blocks run validity" : diagnostic.blocks?.quality ? "blocks quality" : "non-blocking"}`;
+    meta.textContent = `${diagnostic.stage === "preflight" ? "Before enhancement" : "After enhancement"}${diagnostic.stale ? " · outdated" : ""} · ${diagnostic.code ?? "diagnostic"} · ${diagnostic.blocks?.valid ? "blocks run validity" : diagnostic.blocks?.quality ? "blocks quality" : "non-blocking"}`;
     card.appendChild(meta);
     return card;
 }
@@ -207,7 +196,7 @@ export function renderCoachTab(container, controller) {
     const header = document.createElement("div");
     header.className = "minimax-h3-studio-toolbar";
     const heading = document.createElement("div");
-    heading.innerHTML = "<strong>Review</strong><span>Contract checks and contextual Prompt Coach guidance</span>";
+    heading.innerHTML = "<strong>Problems</strong><span>Preflight configuration checks and generated prompt diagnostics</span>";
     const summary = report?.summary;
     const status = document.createElement("strong");
     status.className = "minimax-h3-review-summary";
@@ -223,7 +212,42 @@ export function renderCoachTab(container, controller) {
         toggle.className = "minimax-h3-button minimax-h3-button-secondary minimax-h3-review-dismiss-toggle";
         header.appendChild(toggle);
     }
+    if (controller.runPreflight) header.appendChild(button("Check configuration", () => controller.runPreflight()));
+    if (controller.explainProblems) {
+        const language = document.createElement("select");
+        language.setAttribute("aria-label", "Explanation language");
+        for (const value of ["English", "French"]) {
+            const option = document.createElement("option"); option.value = value; option.textContent = value; language.appendChild(option);
+        }
+        language.value = controller.explanationLanguage ?? "English";
+        language.addEventListener("change", () => { controller.explanationLanguage = language.value; });
+        header.appendChild(language);
+    }
     container.appendChild(header);
+    if (controller.explainProblems) {
+        const settings = document.createElement("details");
+        const title = document.createElement("summary"); title.textContent = "Local explanation settings";
+        settings.appendChild(title);
+        controller.explanationSettings ??= {};
+        for (const [key, label, placeholder] of [["endpoint", "Local API endpoint", "http://127.0.0.1:1234/v1"], ["model", "Loaded model ID", "Use the model selected in Model setup"], ["api_key", "Local API key (optional)", ""]]) {
+            const wrapper = document.createElement("label"); wrapper.className = "minimax-h3-studio-field";
+            const caption = document.createElement("span"); caption.textContent = label;
+            const input = document.createElement("input"); input.type = key === "api_key" ? "password" : "text";
+            input.value = controller.explanationSettings[key] ?? ""; input.placeholder = placeholder;
+            input.setAttribute("aria-label", label);
+            input.addEventListener("input", () => { controller.explanationSettings[key] = input.value; });
+            wrapper.append(caption, input); settings.appendChild(wrapper);
+        }
+        const help = document.createElement("small");
+        help.textContent = "Optional overrides for explanations only, kept in this session. Blank fields use Model setup. Start LM Studio and load a model first; no discovery or explanation requests run automatically.";
+        settings.appendChild(help); container.appendChild(settings);
+    }
+    if (report?.preflightPending || report?.preflightError) {
+        const state = document.createElement("p"); state.setAttribute("role", "status");
+        state.textContent = report.preflightError || "Checking configuration without an LLM…";
+        container.appendChild(state);
+    }
+    if (controller.explainProblems && diagnostics.length) container.appendChild(explanationControl(controller, diagnostics.filter(d => !d.stale).slice(0, 50), true));
     if (report?.stale) {
         const stale = document.createElement("div");
         stale.className = "minimax-h3-studio-status";
@@ -240,11 +264,11 @@ export function renderCoachTab(container, controller) {
         empty.dataset.kind = state;
         if (state === "clean") {
             const success = document.createElement("strong");
-            success.textContent = "Review passed";
+            success.textContent = report.preflightPending ? "Preflight is running" : report.preflightError ? "Preflight could not complete" : report.preflightComplete && !report.outputChecked ? "Configuration checks passed" : "Review passed";
             const copy = document.createElement("p");
-            copy.textContent = "The last run completed with no findings.";
+            copy.textContent = "The completed checks have no findings. Preflight does not validate generated video or an ungenerated prompt.";
             const families = document.createElement("small");
-            families.textContent = "Checked: contract structure, timing, references, dialogue/audio, camera, continuity, appearance and style.";
+            families.textContent = report.preflightComplete ? "Preflight checks configuration, timing, references and planning. Generated prompt checks require enhancement." : "Checked: contract structure, timing, references, dialogue/audio, camera, continuity, appearance and style.";
             empty.append(success, copy, families);
         } else {
             empty.textContent = state === "stale-clean"
@@ -280,4 +304,24 @@ export function renderCoachTab(container, controller) {
         }));
         container.appendChild(section);
     }
+}
+
+function explanationControl(controller, diagnostics, all = false) {
+    const box = document.createElement("div");
+    box.className = "minimax-h3-problem-explanation";
+    const answer = document.createElement("p");
+    answer.style.whiteSpace = "pre-wrap";
+    answer.setAttribute("role", "status");
+    const control = button(all ? "Explain all (up to 50)" : "Explain with local LLM", async () => {
+        control.disabled = true;
+        answer.textContent = "Asking the configured local model…";
+        try { answer.textContent = "Suggested guidance — review before editing:\n\n" + await controller.explainProblems(diagnostics, controller.explanationLanguage ?? "English"); }
+        catch (exc) { answer.textContent = exc.message + " Built-in fixes remain available above."; }
+        finally { control.disabled = false; }
+    });
+    control.disabled = diagnostics.length === 0 || diagnostics.some(d => d.stale);
+    const note = document.createElement("small");
+    note.textContent = "On demand only. Uses the selected local API model; avoid running while H3 uses the GPU. No changes are applied.";
+    box.append(control, note, answer);
+    return box;
 }

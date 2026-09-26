@@ -25,7 +25,7 @@
   "allOf": [
     {
       "if": {
-        "properties": {"cameraMotion": {"enum": ["none", "static"]}},
+        "properties": {"cameraMotion": {"enum": ["none", "static", "zoom_in", "zoom_out", "push_in", "pull_out", "pan_left", "pan_right", "truck_left", "truck_right", "tilt_up", "tilt_down", "pedestal_up", "pedestal_down", "arc", "tracking", "shake", "roll_clockwise", "roll_counterclockwise"]}},
         "required": ["cameraMotion"]
       },
       "then": {

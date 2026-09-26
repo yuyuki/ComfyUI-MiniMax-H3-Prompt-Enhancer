@@ -8,6 +8,13 @@ export function ensureStudioStyles() {
     const style = document.createElement("style");
     style.id = STYLE_ID;
     style.textContent = `
+[data-problem-severity="error"] { outline: 2px solid #ef7777; outline-offset: 2px; border-radius: 5px; }
+[data-problem-severity="warning"] { outline: 2px solid #d9aa45; outline-offset: 2px; border-radius: 5px; }
+.minimax-h3-problem-inline { display:block; color:var(--input-text); font-size:12px; line-height:1.5; padding:6px; }
+.minimax-h3-section-problems { padding:10px; margin:8px 3px 16px; font-size:13px; }
+.minimax-h3-problem-explanation { display:grid; gap:8px; padding:10px 0; }
+.minimax-h3-problem-explanation p { overflow-wrap:anywhere; max-height:480px; overflow:auto; }
+
         .minimax-h3-studio-managed-section { display: none !important; }
 
         .minimax-h3-dashboard {

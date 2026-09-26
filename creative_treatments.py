@@ -10,6 +10,11 @@ boundaries and are therefore parsed with a small, strict JSON schema.
 
 from __future__ import annotations
 
+try:
+    from .camera_catalog import CAMERA_MOTIONS
+except ImportError:
+    from camera_catalog import CAMERA_MOTIONS
+
 import hashlib
 import json
 import math
@@ -2396,27 +2401,7 @@ CINEMATOGRAPHY_CHOICES = {
         "over_the_shoulder": "Render the shot from just behind one character's shoulder, keeping that shoulder and part of the head as soft foreground while the facing subject stays sharp.",
         "mirror_or_reflection": "Render the shot through a mirror or reflective surface already present in the scene, keeping the reflected subject readable and the geometry of the reflection consistent.",
     },
-    "camera_motion": {
-        "none": "",
-        "static": "The camera holds a locked static frame on the existing composition, without drift, reframing, or handheld float.",
-        "zoom_in": "The camera zooms in on the principal subject already present in the shot, tightening the framing optically while the camera body stays where it is.",
-        "zoom_out": "The camera zooms out from the principal subject already present in the shot, widening the framing optically while the camera body stays where it is.",
-        "push_in": "The camera pushes in toward the principal subject already present in the shot, in one continuous move that settles before the key beat.",
-        "pull_out": "The camera pulls out away from the principal subject already present in the shot, revealing more of the space that is already around it.",
-        "pan_left": "The camera pans left from a fixed position, sweeping across the existing space and settling on the required action.",
-        "pan_right": "The camera pans right from a fixed position, sweeping across the existing space and settling on the required action.",
-        "truck_left": "The camera trucks left, travelling bodily sideways across the scene while keeping the required action inside the frame.",
-        "truck_right": "The camera trucks right, travelling bodily sideways across the scene while keeping the required action inside the frame.",
-        "tilt_up": "The camera tilts up from a fixed position, following the existing vertical line from the principal subject toward what is already above it.",
-        "tilt_down": "The camera tilts down from a fixed position, following the existing vertical line from the principal subject toward what is already below it.",
-        "pedestal_up": "The camera pedestals up, rising vertically on its axis while holding the same framing angle on the principal subject already present in the shot.",
-        "pedestal_down": "The camera pedestals down, lowering vertically on its axis while holding the same framing angle on the principal subject already present in the shot.",
-        "arc": "The camera arcs around the principal subject already present in the shot, keeping it centred while the changing background reveals the existing depth.",
-        "tracking": "The camera tracks alongside the principal subject already present in the shot, holding a steady following distance as that subject moves.",
-        "shake": "The camera shakes, handheld-style, while keeping the required action identifiable.",
-        "roll_clockwise": "The camera rolls clockwise around the lens axis, canting the horizon progressively without moving the subject through the scene.",
-        "roll_counterclockwise": "The camera rolls counterclockwise around the lens axis, canting the horizon progressively without moving the subject through the scene.",
-    },
+    "camera_motion": {"none": "", **{key: item["instruction"] for key, item in CAMERA_MOTIONS.items()}},
     "camera_amplitude": {
         "auto": "",
         "small": "Use small camera-motion amplitude.",
@@ -2469,26 +2454,7 @@ CINEMATOGRAPHY_CHOICES = {
 }
 
 
-CAMERA_MOTION_HEADS = {
-    "static": "The camera holds a locked static frame",
-    "zoom_in": "The camera zooms in",
-    "zoom_out": "The camera zooms out",
-    "push_in": "The camera pushes in",
-    "pull_out": "The camera pulls out",
-    "pan_left": "The camera pans left",
-    "pan_right": "The camera pans right",
-    "truck_left": "The camera trucks left",
-    "truck_right": "The camera trucks right",
-    "tilt_up": "The camera tilts up",
-    "tilt_down": "The camera tilts down",
-    "pedestal_up": "The camera pedestals up",
-    "pedestal_down": "The camera pedestals down",
-    "arc": "The camera arcs",
-    "tracking": "The camera tracks",
-    "shake": "The camera shakes",
-    "roll_clockwise": "The camera rolls clockwise",
-    "roll_counterclockwise": "The camera rolls counterclockwise",
-}
+CAMERA_MOTION_HEADS = {key: item["head"] for key, item in CAMERA_MOTIONS.items()}
 
 CAMERA_AMPLITUDE_CLAUSES = {
     "small": " with small amplitude",

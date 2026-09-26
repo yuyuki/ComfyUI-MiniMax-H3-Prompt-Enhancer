@@ -415,6 +415,7 @@ function renderAssetInspector(container, project, asset, controller) {
             commitAndRender(container, controller);
         }));
     }
+    inspector.dataset.problemEntity = "true"; inspector.dataset.assetId = asset.id;
     inspector.appendChild(identity.details);
     inspector.appendChild(renderFirstAssignment(container, project, asset, controller));
     {
@@ -636,6 +637,7 @@ function renderBindings(container, project, generation, model, controller) {
         const asset = project.assets.find((candidate) => candidate.id === binding.assetId);
         const row = document.createElement("div");
         row.className = "minimax-h3-binding-row";
+        row.dataset.bindingAsset = binding.assetId; row.dataset.generationId = generation.id;
         const availableAssets = project.assets.filter((candidate) => candidate.id === binding.assetId || !(generation.bindings ?? []).some((other) => other !== binding && other.assetId === candidate.id));
         row.appendChild(labeledSelect("Asset", binding.assetId, availableAssets.map((item) => [item.id, item.name]), (value) => {
             binding.assetId = value;

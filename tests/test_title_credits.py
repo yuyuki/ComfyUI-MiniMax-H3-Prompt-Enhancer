@@ -159,7 +159,8 @@ def test_schema_and_frontend_expose_conditional_title_controls():
     assert optional["title_sequence_recipe"][1]["default"] == "none"
     assert optional["title_sequence_energy"][1]["default"] == "balanced"
 
-    frontend = (prompt_enhancer_node.__file__.rsplit("\\", 1)[0] + "\\web\\backend_toggle.js")
+    from pathlib import Path
+    frontend = Path(prompt_enhancer_node.__file__).parent / "web" / "backend_toggle.js"
     source = open(frontend, encoding="utf-8").read()
     assert 'widget.name === "title_sequence_recipe"' in source
     assert '"title_text", "credit_lines", "title_placement"' in source

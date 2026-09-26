@@ -1,3 +1,4 @@
+import { CAMERA_MOTIONS } from "./camera_catalog.js";
 function issue(severity, section, message, location = "") {
     return { severity, section, message, location };
 }
@@ -99,7 +100,7 @@ export function localPreflight({ shotDocument, projectDocument, basicPrompt = ""
 
     for (const subject of subjects) {
         if (!nonEmpty(subject?.description) || subject.description === "Describe the stable identity.") {
-            items.push(issue("error", "subjects", "Describe the stable identity before generating.", subject?.id || "Subject"));
+            items.push({...issue("error", "subjects", "Describe the stable identity before generating.", subject?.id || "Subject"), field: `media_manifest.subjects[${subjects.indexOf(subject)}].description`});
         }
         const explicitlyIncluded = (project?.generations ?? []).some((generation) =>
             (generation.activation?.roots ?? []).some((root) => root.kind === "subject" && root.id === subject.id));
@@ -116,12 +117,17 @@ export function localPreflight({ shotDocument, projectDocument, basicPrompt = ""
     }
 
     for (const shot of shots) {
+        const index = shots.indexOf(shot);
+        const motion = shot.cameraPath?.motionType;
+        if (motion !== undefined && !CAMERA_MOTIONS[motion]) {
+            items.push({...issue("error", "camera", `Unsupported movement '${motion}'. Choose Dolly in (push_in) to move forward, Zoom in (zoom_in) to magnify, or Tilt down (tilt_down) to look down.`, shot.id), field: `shot_plan_json.shots[${index}].cameraPath.motionType`, code: "preflight.camera.motion"});
+        }
         const label = shot?.id || "Shot";
         if (!nonEmpty(shot?.action)) {
             if (shots.length === 1 && nonEmpty(basicPrompt)) {
                 items.push(issue("info", "shots", "This single Shot inherits its Action from the Basic prompt.", label));
             } else {
-                items.push(issue("error", "shots", "Describe the visible action before generating.", label));
+                items.push({...issue("error", "shots", "Describe the visible action before generating.", label), field: `shot_plan_json.shots[${index}].action`});
             }
         }
         if (project && !generations.has(shot?.generationId)) {
